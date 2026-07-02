@@ -1,0 +1,70 @@
+{
+  "name": "unbunjs",
+  "version": "1.0.0-beta.0",
+  "description": "Viewer and extractor for Bun compiled binaries (bun build --compile)",
+  "author": "Tom Chen <tomchen.org@gmail.com>",
+  "license": "MIT",
+  "keywords": [
+    "bun",
+    "bun-compile",
+    "binary",
+    "extractor",
+    "decompile",
+    "reverse-engineer",
+    "standalone",
+    "executable",
+    "viewer"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/cc-friend/unbun.git"
+  },
+  "bugs": {
+    "url": "https://github.com/cc-friend/unbun/issues"
+  },
+  "homepage": "https://github.com/cc-friend/unbun#readme",
+  "bin": {
+    "unbun": "dist/cli.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "clean": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\"",
+    "build": "npm run clean && tsc",
+    "typecheck": "tsc --noEmit",
+    "lint": "biome lint src test",
+    "lint:fix": "biome lint --write src test",
+    "format": "biome format src test",
+    "format:fix": "biome format --write src test",
+    "test": "bun test",
+    "checkall": "bun run typecheck && bun run lint && bun run format && bun run test",
+    "fixall": "biome check --write src test",
+    "check:claude-code": "bun run build && node scripts/check-claude-code.mjs",
+    "release:beta": "vbt prerelease beta",
+    "release:patch": "vbt patch",
+    "release:minor": "vbt minor",
+    "release:major": "vbt major",
+    "prepublishOnly": "npm run build"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.5.2",
+    "@types/bun": "^1.3.14",
+    "@types/node": "^26.1.0",
+    "typescript": "^6.0.3",
+    "vbt": "^2.0.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

@@ -1,0 +1,8 @@
+node_modules/
+dist/
+compiled-bin-to-test/
+extracted/
+coverage/
+.cache/
+*.tgz
+.DS_Store

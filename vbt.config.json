@@ -1,0 +1,10 @@
+{
+  "requireCleanWorkingDirectory": true,
+  "manifest": "./package.json",
+  "files": ["src/cli.ts"],
+  "marker": "vbt-version",
+  "commitMessage": "chore: release v{{version}}",
+  "tag": "v{{version}}",
+  "tagMessage": "v{{version}}",
+  "push": true
+}
