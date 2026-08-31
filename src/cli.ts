@@ -12,7 +12,7 @@ import {
 	parse,
 } from "./parser";
 
-const VERSION = "1.0.0"; // vbt-version
+const VERSION = "2.0.0"; // vbt-version
 
 function formatSize(bytes: number): string {
 	if (bytes < 1024) return `${bytes} B`;
