@@ -54,7 +54,7 @@ describe.each<FormatName>([
 		const [app, cfg, wasm] = parsed.modules;
 		expect(app.loader).toBe("js");
 		expect(app.module_format).toBe("esm");
-		expect(app.encoding).toBe("utf8");
+		expect(app.encoding).toBe("latin1");
 		expect(cfg.loader).toBe("json");
 		expect(cfg.module_format).toBe("none");
 		expect(wasm.loader).toBe("wasm");
@@ -107,6 +107,91 @@ describe("module content helpers", () => {
 			'{"version":3}',
 		);
 		expect(getModuleSourcemap(parsed, cfg)).toHaveLength(0);
+	});
+});
+
+describe("content encodings", () => {
+	// Bun stores a module's contents as the bytes of the JS string it held, tagged
+	// with how it encoded them, and decodes them again when the program reads the
+	// module back out of the virtual filesystem — getModuleSource must match.
+	const parsed = parseBuffer(
+		buildBunBinary([
+			{ name: "/$bunfs/root/app.js", contents: "export const a = 1;\n" },
+			{
+				name: "/$bunfs/root/latin1.md",
+				contents: Buffer.from("caf\u00e9 na\u00efve", "latin1"),
+				encoding: 1,
+			},
+			{
+				name: "/$bunfs/root/utf16.md",
+				contents: Buffer.from("caf\u00e9 \u4e2d\u6587 \u{1f680}", "utf16le"),
+				encoding: 2,
+			},
+			{
+				name: "/$bunfs/root/addon.node",
+				contents: Buffer.from([0x00, 0x80, 0xff, 0x01]),
+				encoding: 0,
+			},
+		]),
+	);
+	const [app, latin1, utf16, addon] = parsed.modules;
+
+	test("code 2 is utf16le, not utf8", () => {
+		expect(app.encoding).toBe("latin1");
+		expect(latin1.encoding).toBe("latin1");
+		expect(utf16.encoding).toBe("utf16le");
+		expect(addon.encoding).toBe("binary");
+	});
+
+	test("getModuleSource decodes latin1 contents", () => {
+		expect(getModuleSource(parsed, latin1)).toBe("caf\u00e9 na\u00efve");
+	});
+
+	test("getModuleSource decodes utf16le contents", () => {
+		// what a plain utf-8 decode used to produce: NUL-separated mojibake
+		expect(getModuleContents(parsed, utf16).toString("utf-8")).not.toBe(
+			"caf\u00e9 \u4e2d\u6587 \u{1f680}",
+		);
+		expect(getModuleSource(parsed, utf16)).toBe(
+			"caf\u00e9 \u4e2d\u6587 \u{1f680}",
+		);
+	});
+
+	test("getModuleContents stays byte-exact whatever the tag", () => {
+		expect([...getModuleContents(parsed, addon)]).toEqual([0, 0x80, 0xff, 1]);
+		expect(getModuleContents(parsed, latin1)).toHaveLength(10);
+	});
+});
+
+describe("minimal (Bun ~1.0) layout", () => {
+	const parsed = parseBuffer(
+		buildBunBinary(
+			[
+				{ name: "/$bunfs/root/app.js", contents: 'const s = "caf\u00e9";\n' },
+				{ name: "/$bunfs/root/lib.js", contents: "export const b = 2;\n" },
+			],
+			{ format: "minimal" },
+		),
+	);
+
+	test("detects the layout and reads every module", () => {
+		expect(parsed.offsets.module_entry_size).toBe(32);
+		expect(parsed.modules.map((m) => m.name)).toEqual([
+			"/$bunfs/root/app.js",
+			"/$bunfs/root/lib.js",
+		]);
+		expect(parsed.modules[0].loader).toBe("js");
+		expect(parsed.modules[0].bytecode_length).toBe(0);
+	});
+
+	test("getModuleSource keeps UTF-8 where the entry records no encoding", () => {
+		// `latin1` here is the default parse() reports, not a tag read from the
+		// binary — a 1.0 graph stores plain source bytes, so decoding it as latin1
+		// would mangle every non-ASCII character.
+		expect(parsed.modules[0].encoding).toBe("latin1");
+		expect(getModuleSource(parsed, parsed.modules[0])).toBe(
+			'const s = "caf\u00e9";\n',
+		);
 	});
 });
 

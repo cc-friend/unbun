@@ -6,8 +6,8 @@
  *   [prefix] [payload (byte_count)] [Offsets] [trailer (16)] [trailing]
  *
  * This lets us exercise the real parser without shipping the ~200 MB platform
- * binaries. Both the compact (Bun <=1.3.10) and extended (Bun >=1.3.11) module
- * graph layouts are supported.
+ * binaries. Every module graph layout the parser auto-detects is supported, from
+ * the minimal Bun ~1.0 entry to the extended Bun >=1.3.11 one.
  */
 
 export const BUN_TRAILER = Buffer.from("\n---- Bun! ----\n");
@@ -15,6 +15,7 @@ export const BUN_TRAILER = Buffer.from("\n---- Bun! ----\n");
 const SP_SIZE = 8;
 
 export const FORMATS = {
+	minimal: { offsetsSize: 24, moduleEntrySize: 32 }, // Bun ~1.0
 	compact: { offsetsSize: 24, moduleEntrySize: 36 }, // Bun ~1.0–1.1
 	midsize: { offsetsSize: 32, moduleEntrySize: 36 }, // Bun ~1.2
 	extended: { offsetsSize: 32, moduleEntrySize: 52 }, // Bun ~1.3.10+
@@ -31,7 +32,7 @@ export interface FixtureModule {
 	moduleInfo?: Buffer;
 	/** extended layout only */
 	bytecodeOriginPath?: string;
-	/** encoding code: 0 binary, 1 latin1, 2 utf8 (default) */
+	/** encoding code: 0 binary, 1 latin1 (default, as in Bun), 2 utf16le */
 	encoding?: number;
 	/** loader code: 1 js (default), 6 json, 9 wasm, 10 napi, ... */
 	loader?: number;
@@ -76,6 +77,9 @@ export function buildBunBinary(
 	const format = FORMATS[opts.format ?? "extended"];
 	const hasArgvFlags = format.offsetsSize === 32;
 	const hasEntryExtras = format.moduleEntrySize === 52;
+	// Bun ~1.0 entries stop after three pointers and a loader byte: no bytecode
+	// pointer, and no encoding/module_format/side.
+	const hasBytecodePtr = format.moduleEntrySize > 32;
 	const entryPoint = opts.entryPoint ?? 0;
 	const prefixSize = opts.prefixSize ?? 16;
 	const trailingSize = opts.trailingSize ?? 0;
@@ -98,7 +102,7 @@ export function buildBunBinary(
 		bytecode: put(m.bytecode ?? Buffer.alloc(0)),
 		moduleInfo: put(m.moduleInfo ?? Buffer.alloc(0)),
 		bytecodeOriginPath: put(toBuf(m.bytecodeOriginPath ?? "")),
-		encoding: m.encoding ?? 2,
+		encoding: m.encoding ?? 1,
 		loader: m.loader ?? 1,
 		moduleFormat: m.moduleFormat ?? 1,
 		side: m.side ?? 0,
@@ -120,6 +124,10 @@ export function buildBunBinary(
 		p += SP_SIZE;
 		writeSP(table, p, e.sourcemap);
 		p += SP_SIZE;
+		if (!hasBytecodePtr) {
+			table.writeUInt8(e.loader, p);
+			return;
+		}
 		writeSP(table, p, e.bytecode);
 		p += SP_SIZE;
 		if (hasEntryExtras) {

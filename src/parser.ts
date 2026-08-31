@@ -22,8 +22,8 @@
  *
  * Trailer = "\n---- Bun! ----\n"
  *
- * Based on Bun's open-source StandaloneModuleGraph.zig:
- *   https://github.com/oven-sh/bun/blob/main/src/StandaloneModuleGraph.zig
+ * Based on Bun's open-source standalone module graph (Zig, since ported to Rust):
+ *   https://github.com/oven-sh/bun/blob/main/src/standalone_graph/StandaloneModuleGraph.rs
  */
 
 import {
@@ -90,10 +90,15 @@ export const LOADERS: Record<number, string> = {
 	20: "md",
 };
 
+// How the module's contents were encoded from the JS string Bun held them in.
+// Code 2 is UTF-16LE code units, NOT UTF-8: Bun reuses the discriminant of a
+// `utf8` variant it never wrote, so that an older runtime reads such a module
+// through its plain-copy arm instead of rejecting an unknown value. Names match
+// Node's Buffer encodings, so they can be handed straight to `buf.toString()`.
 export const ENCODINGS: Record<number, string> = {
 	0: "binary",
 	1: "latin1",
-	2: "utf8",
+	2: "utf16le",
 };
 
 export const MODULE_FORMATS: Record<number, string> = {
@@ -154,7 +159,7 @@ export interface BunModule {
 	module_info_length: number;
 	/** Path used when generating bytecode */
 	bytecode_origin_path: string;
-	/** Content encoding: binary, latin1, or utf8 */
+	/** Content encoding: binary, latin1, or utf16le (see ENCODINGS) */
 	encoding: string;
 	/** Bun loader type: js, ts, jsx, tsx, css, json, wasm, napi, etc. */
 	loader: string;
@@ -289,7 +294,7 @@ function readRawModuleEntryMinimal(
 		bytecode: { offset: 0, length: 0 },
 		module_info: { offset: 0, length: 0 },
 		bytecode_origin_path: { offset: 0, length: 0 },
-		encoding: 1, // no per-module encoding field in 1.0; default to latin1
+		encoding: 1, // no per-module encoding field in 1.0; report Bun's default
 		loader,
 		module_format: 0,
 		side: 0,
@@ -521,13 +526,26 @@ export function getModuleContents(
 }
 
 /**
- * Get the raw source contents of a module as a string.
+ * Get the source contents of a module as a string, decoded with the encoding
+ * Bun tagged it with — the same text Bun itself serves when the program reads
+ * the module back out of the virtual filesystem.
+ *
+ * `binary` modules (native addons, wasm, embedded files) hold no text to decode;
+ * use getModuleContents() for those and keep the bytes.
  */
 export function getModuleSource(
 	parsed: ParsedBunBinary,
 	mod: BunModule,
 ): string {
-	return getModuleContents(parsed, mod).toString("utf-8");
+	const contents = getModuleContents(parsed, mod);
+	// The 32-byte (Bun ~1.0) entry carries no encoding field, so parse() reports
+	// a default rather than something it read; those graphs store plain source
+	// bytes. Only trust the tag on the layouts that actually record one.
+	if (parsed.offsets.module_entry_size > 32) {
+		if (mod.encoding === "latin1") return contents.toString("latin1");
+		if (mod.encoding === "utf16le") return contents.toString("utf16le");
+	}
+	return contents.toString("utf-8");
 }
 
 /**

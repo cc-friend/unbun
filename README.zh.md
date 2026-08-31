@@ -8,7 +8,7 @@
 
 当你使用 `bun build --compile` 编译一个 JavaScript/TypeScript 项目时，Bun 会把你的源代码、字节码、WASM 文件、原生插件以及其他资源打包进单个独立可执行文件中。**unbun** 让你能够查看这些二进制文件的内部，列出所有嵌入式模块，预览它们的内容，并将它们提取到磁盘上。
 
-[CC2Node](https://github.com/cc-friend/cc2node) 是一个基于 unbun 的 CLI 工具，它可以把任意经 Bun 编译的 Claude Code 转换为纯 Node 构建，从而在普通的 Node v18 及以上版本上运行。
+[cc2js](https://github.com/cc-friend/cc2js) 是一个基于 unbun 的 CLI 工具，它可以把任意经 Bun 编译的 Claude Code 转换为纯 Node 构建，从而在普通的 Node v18 及以上版本上运行。
 
 ## 安装
 
@@ -41,12 +41,12 @@ Payload size:   1871424 (1.78 MB)
 Flags:          disable_default_env_files
 Modules:        4
 
-  #  Entry  Loader  Format  Enc     Side          Source      Bytecode      SrcMap  Name
+  #  Entry  Loader  Format  Enc      Side          Source      Bytecode      SrcMap  Name
 ----------------------------------------------------------------------------------------------------------------------------------
-  0   >>>   js      esm     utf8    server     456.30 KB       3.21 MB           -  /$bunfs/root/src/app.js
-  1         json    none    utf8    server       1.80 KB             -           -  /$bunfs/root/config.json
-  2         wasm    none    binary  client     851.20 KB             -           -  /$bunfs/root/math.wasm
-  3         napi    none    binary  client     624.00 KB             -           -  /$bunfs/root/crypto.node
+  0   >>>   js      esm     latin1   server     456.30 KB       3.21 MB           -  /$bunfs/root/src/app.js
+  1         json    none    latin1   server       1.80 KB             -           -  /$bunfs/root/config.json
+  2         wasm    none    binary   client     851.20 KB             -           -  /$bunfs/root/math.wasm
+  3         napi    none    binary   client     624.00 KB             -           -  /$bunfs/root/crypto.node
 ```
 
 `>>>` 标记表示入口点模块。
@@ -76,7 +76,7 @@ unbun list ./myapp --json
       "bytecode_length": 3366912,
       "loader": "js",
       "module_format": "esm",
-      "encoding": "utf8",
+      "encoding": "latin1",
       "side": "server",
       "is_entry_point": true
     }
@@ -243,7 +243,7 @@ const binary2 = parseBuffer(data);
 
 #### `getModuleSource(parsed, module): string`
 
-以 UTF-8 字符串形式获取某个模块的源码内容。
+以字符串形式获取某个模块的源码内容，按 Bun 标记的编码解码（`latin1`，含非 Latin-1 字符的文本则是 `utf16le`）——与程序在 Bun 下读回该模块时拿到的文本一致。`binary` 模块请改用 `getModuleContents()`。
 
 #### `getModuleContents(parsed, module): Buffer`
 
@@ -286,7 +286,7 @@ interface BunModule {
   bytecode_length: number;
   module_info_length: number;
   bytecode_origin_path: string;
-  encoding: string;           // "binary" | "latin1" | "utf8"
+  encoding: string;           // "binary" | "latin1" | "utf16le"
   loader: string;             // "js" | "ts" | "jsx" | "tsx" | "css" | "json" | "wasm" | "napi" | ...
   module_format: string;      // "none" | "esm" | "cjs"
   side: string;               // "server" | "client"
@@ -356,9 +356,7 @@ bun run build      # compile TypeScript to dist/
 
 ### 发布
 
-发布过程由 [vbt](https://www.npmjs.com/package/vbt) 和 GitHub
-Actions 自动完成。提升版本号会重写 `package.json` 和 CLI 的版本
-字符串，然后提交、打标签并推送：
+发布过程由 [vbt](https://www.npmjs.com/package/vbt) 和 GitHub Actions 自动完成。提升版本号会重写 `package.json` 和 CLI 的版本字符串，然后提交、打标签并推送：
 
 ```bash
 bun run release:patch   # 1.0.0 -> 1.0.1
@@ -366,13 +364,11 @@ bun run release:minor   # 1.0.0 -> 1.1.0
 bun run release:major   # 1.0.0 -> 2.0.0
 ```
 
-推送由此产生的 `v*` 标签会触发 **Publish** 工作流，它会
-重新运行检查，并带着来源证明（provenance）发布到 npm。它需要一个
-`NPM_TOKEN` 仓库密钥（一个 npm 自动化令牌）。
+推送由此产生的 `v*` 标签会触发 **Publish** 工作流，它会重新运行检查，并带着来源证明（provenance）发布到 npm。
 
 ## 相关项目
 
-- [CC2Node](https://github.com/cc-friend/cc2node)：把任意经 Bun 编译的 Claude Code 转换为纯 Node 构建，从而在普通的 Node v18 及以上版本上运行
+- [cc2js](https://github.com/cc-friend/cc2js)：把任意经 Bun 编译的 Claude Code 转换为纯 Node 构建，从而在普通的 Node v18 及以上版本上运行
 - [Bun Standalone Executables docs](https://bun.sh/docs/bundler/executables)：Bun 官方文档
 
 ## 许可证

@@ -8,7 +8,7 @@ Inspectez et extrayez les modules embarqués des [binaires compilés par Bun](ht
 
 Lorsque vous compilez un projet JavaScript/TypeScript avec `bun build --compile`, Bun regroupe votre code source, le bytecode, les fichiers WASM, les modules natifs et d'autres ressources dans un unique exécutable autonome. **unbun** vous permet d'inspecter l'intérieur de ces binaires, de lister tous les modules embarqués, de prévisualiser leur contenu et de les extraire sur le disque.
 
-[CC2Node](https://github.com/cc-friend/cc2node) est un outil CLI basé sur unbun, il peut convertir n'importe quel Claude Code compilé avec Bun en une version pure Node qui fonctionne sur un simple Node v18 ou ultérieur.
+[cc2js](https://github.com/cc-friend/cc2js) est un outil CLI basé sur unbun, il peut convertir n'importe quel Claude Code compilé avec Bun en une version pure Node qui fonctionne sur un simple Node v18 ou ultérieur.
 
 ## Installation
 
@@ -41,12 +41,12 @@ Payload size:   1871424 (1.78 MB)
 Flags:          disable_default_env_files
 Modules:        4
 
-  #  Entry  Loader  Format  Enc     Side          Source      Bytecode      SrcMap  Name
+  #  Entry  Loader  Format  Enc      Side          Source      Bytecode      SrcMap  Name
 ----------------------------------------------------------------------------------------------------------------------------------
-  0   >>>   js      esm     utf8    server     456.30 KB       3.21 MB           -  /$bunfs/root/src/app.js
-  1         json    none    utf8    server       1.80 KB             -           -  /$bunfs/root/config.json
-  2         wasm    none    binary  client     851.20 KB             -           -  /$bunfs/root/math.wasm
-  3         napi    none    binary  client     624.00 KB             -           -  /$bunfs/root/crypto.node
+  0   >>>   js      esm     latin1   server     456.30 KB       3.21 MB           -  /$bunfs/root/src/app.js
+  1         json    none    latin1   server       1.80 KB             -           -  /$bunfs/root/config.json
+  2         wasm    none    binary   client     851.20 KB             -           -  /$bunfs/root/math.wasm
+  3         napi    none    binary   client     624.00 KB             -           -  /$bunfs/root/crypto.node
 ```
 
 Le marqueur `>>>` indique le module servant de point d'entrée.
@@ -76,7 +76,7 @@ unbun list ./myapp --json
       "bytecode_length": 3366912,
       "loader": "js",
       "module_format": "esm",
-      "encoding": "utf8",
+      "encoding": "latin1",
       "side": "server",
       "is_entry_point": true
     }
@@ -243,7 +243,7 @@ Vérifie rapidement si un fichier est un binaire compilé Bun, en analysant la f
 
 #### `getModuleSource(parsed, module): string`
 
-Récupère le contenu source d'un module sous forme de chaîne UTF-8.
+Récupère le contenu source d'un module sous forme de chaîne, décodé avec l'encodage indiqué par Bun (`latin1`, ou `utf16le` pour un texte contenant des caractères hors Latin-1) — le même texte que Bun fournit lorsque le programme relit le module. Utilisez `getModuleContents()` pour les modules `binary`.
 
 #### `getModuleContents(parsed, module): Buffer`
 
@@ -286,7 +286,7 @@ interface BunModule {
   bytecode_length: number;
   module_info_length: number;
   bytecode_origin_path: string;
-  encoding: string;           // "binary" | "latin1" | "utf8"
+  encoding: string;           // "binary" | "latin1" | "utf16le"
   loader: string;             // "js" | "ts" | "jsx" | "tsx" | "css" | "json" | "wasm" | "napi" | ...
   module_format: string;      // "none" | "esm" | "cjs"
   side: string;               // "server" | "client"
@@ -356,9 +356,7 @@ Le linting et le formatage sont gérés par [Biome](https://biomejs.dev/). La su
 
 ### Publication des versions
 
-Les publications sont automatisées avec [vbt](https://www.npmjs.com/package/vbt) et GitHub
-Actions. L'incrémentation de la version réécrit `package.json` et la chaîne de version
-de la CLI, puis effectue un commit, un tag et un push :
+Les publications sont automatisées avec [vbt](https://www.npmjs.com/package/vbt) et GitHub Actions. L'incrémentation de la version réécrit `package.json` et la chaîne de version de la CLI, puis effectue un commit, un tag et un push :
 
 ```bash
 bun run release:patch   # 1.0.0 -> 1.0.1
@@ -366,13 +364,11 @@ bun run release:minor   # 1.0.0 -> 1.1.0
 bun run release:major   # 1.0.0 -> 2.0.0
 ```
 
-Le push du tag `v*` résultant déclenche le workflow **Publish**, qui
-relance les vérifications et publie sur npm avec provenance. Il nécessite un
-secret de dépôt `NPM_TOKEN` (un token d'automatisation npm).
+Le push du tag `v*` résultant déclenche le workflow **Publish**, qui relance les vérifications et publie sur npm avec provenance.
 
 ## Projets connexes
 
-- [CC2Node](https://github.com/cc-friend/cc2node) : Convertir n'importe quel Claude Code compilé avec Bun en une version pure Node qui fonctionne sur un simple Node v18 ou ultérieur
+- [cc2js](https://github.com/cc-friend/cc2js) : Convertir n'importe quel Claude Code compilé avec Bun en une version pure Node qui fonctionne sur un simple Node v18 ou ultérieur
 - [Documentation des exécutables autonomes Bun](https://bun.sh/docs/bundler/executables) : Documentation officielle de Bun
 
 ## Licence

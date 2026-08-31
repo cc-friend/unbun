@@ -7,6 +7,7 @@ import {
 	findModules,
 	getModuleBytecode,
 	getModuleContents,
+	getModuleSource,
 	getModuleSourcemap,
 	parse,
 } from "./parser";
@@ -60,7 +61,7 @@ function cmdList(filePath: string, json: boolean) {
 			"Entry".padEnd(5),
 			"Loader".padEnd(6),
 			"Format".padEnd(6),
-			"Enc".padEnd(6),
+			"Enc".padEnd(7),
 			"Side".padEnd(6),
 			"Source".padStart(12),
 			"Bytecode".padStart(12),
@@ -77,7 +78,7 @@ function cmdList(filePath: string, json: boolean) {
 				(m.is_entry_point ? " >>> " : "     ").padEnd(5),
 				m.loader.padEnd(6),
 				m.module_format.padEnd(6),
-				m.encoding.padEnd(6),
+				m.encoding.padEnd(7),
 				m.side.padEnd(6),
 				formatSize(m.contents_length).padStart(12),
 				(m.bytecode_length > 0 ? formatSize(m.bytecode_length) : "-").padStart(
@@ -165,9 +166,7 @@ function cmdPreview(
 		process.exit(1);
 	}
 
-	const contents = getModuleContents(parsed, mod);
-	const text = contents.toString("utf-8");
-	const textLines = text.split("\n");
+	const textLines = getModuleSource(parsed, mod).split("\n");
 	console.log(
 		`Module: ${mod.name} (${formatSize(mod.contents_length)}, ${textLines.length} lines)`,
 	);

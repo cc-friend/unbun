@@ -8,7 +8,7 @@ Inspect and extract embedded modules from [Bun compiled binaries](https://bun.sh
 
 When you compile a JavaScript/TypeScript project with `bun build --compile`, Bun bundles your source code, bytecode, WASM files, native addons, and other assets into a single standalone executable. **unbun** lets you look inside these binaries, list all embedded modules, preview their contents, and extract them to disk.
 
-[CC2Node](https://github.com/cc-friend/cc2node) is a CLI tool based on unbun, it can convert any Bun-compiled Claude Code into a pure-Node build that runs on plain Node v18 or later.
+[cc2js](https://github.com/cc-friend/cc2js) is a CLI tool based on unbun, it can convert any Bun-compiled Claude Code into a pure-Node build that runs on plain Node v18 or later.
 
 ## Install
 
@@ -41,12 +41,12 @@ Payload size:   1871424 (1.78 MB)
 Flags:          disable_default_env_files
 Modules:        4
 
-  #  Entry  Loader  Format  Enc     Side          Source      Bytecode      SrcMap  Name
+  #  Entry  Loader  Format  Enc      Side          Source      Bytecode      SrcMap  Name
 ----------------------------------------------------------------------------------------------------------------------------------
-  0   >>>   js      esm     utf8    server     456.30 KB       3.21 MB           -  /$bunfs/root/src/app.js
-  1         json    none    utf8    server       1.80 KB             -           -  /$bunfs/root/config.json
-  2         wasm    none    binary  client     851.20 KB             -           -  /$bunfs/root/math.wasm
-  3         napi    none    binary  client     624.00 KB             -           -  /$bunfs/root/crypto.node
+  0   >>>   js      esm     latin1   server     456.30 KB       3.21 MB           -  /$bunfs/root/src/app.js
+  1         json    none    latin1   server       1.80 KB             -           -  /$bunfs/root/config.json
+  2         wasm    none    binary   client     851.20 KB             -           -  /$bunfs/root/math.wasm
+  3         napi    none    binary   client     624.00 KB             -           -  /$bunfs/root/crypto.node
 ```
 
 The `>>>` marker indicates the entry point module.
@@ -76,7 +76,7 @@ unbun list ./myapp --json
       "bytecode_length": 3366912,
       "loader": "js",
       "module_format": "esm",
-      "encoding": "utf8",
+      "encoding": "latin1",
       "side": "server",
       "is_entry_point": true
     }
@@ -243,7 +243,7 @@ Quick check whether a file is a Bun compiled binary, scanning the tail of the fi
 
 #### `getModuleSource(parsed, module): string`
 
-Get the source contents of a module as a UTF-8 string.
+Get the source contents of a module as a string, decoded with the encoding Bun tagged it with (`latin1`, or `utf16le` for text holding non-Latin-1 characters) — the same text Bun serves when the program reads the module back. Reach for `getModuleContents()` on `binary` modules.
 
 #### `getModuleContents(parsed, module): Buffer`
 
@@ -286,7 +286,7 @@ interface BunModule {
   bytecode_length: number;
   module_info_length: number;
   bytecode_origin_path: string;
-  encoding: string;           // "binary" | "latin1" | "utf8"
+  encoding: string;           // "binary" | "latin1" | "utf16le"
   loader: string;             // "js" | "ts" | "jsx" | "tsx" | "css" | "json" | "wasm" | "napi" | ...
   module_format: string;      // "none" | "esm" | "cjs"
   side: string;               // "server" | "client"
@@ -356,9 +356,7 @@ Linting and formatting are handled by [Biome](https://biomejs.dev/). The test su
 
 ### Releasing
 
-Releases are automated with [vbt](https://www.npmjs.com/package/vbt) and GitHub
-Actions. Bumping the version rewrites `package.json` and the CLI's version
-string, then commits, tags, and pushes:
+Releases are automated with [vbt](https://www.npmjs.com/package/vbt) and GitHub Actions. Bumping the version rewrites `package.json` and the CLI's version string, then commits, tags, and pushes:
 
 ```bash
 bun run release:patch   # 1.0.0 -> 1.0.1
@@ -366,13 +364,11 @@ bun run release:minor   # 1.0.0 -> 1.1.0
 bun run release:major   # 1.0.0 -> 2.0.0
 ```
 
-Pushing the resulting `v*` tag triggers the **Publish** workflow, which
-re-runs the checks and publishes to npm with provenance. It requires an
-`NPM_TOKEN` repository secret (an npm automation token).
+Pushing the resulting `v*` tag triggers the **Publish** workflow, which re-runs the checks and publishes to npm with provenance.
 
 ## Related Projects
 
-- [CC2Node](https://github.com/cc-friend/cc2node): Convert any Bun-compiled Claude Code into a pure-Node build that runs on plain Node v18 or later
+- [cc2js](https://github.com/cc-friend/cc2js): Convert any Bun-compiled Claude Code into a pure-Node build that runs on plain Node v18 or later
 - [Bun Standalone Executables docs](https://bun.sh/docs/bundler/executables): Official Bun documentation
 
 ## License
